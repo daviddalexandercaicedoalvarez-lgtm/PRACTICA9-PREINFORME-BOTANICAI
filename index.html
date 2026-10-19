@@ -1,0 +1,1473 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [ {
+                "value": "gimnospermas",
+                "label": "1) Gimnospermas y estróbilos"
+            },
+                {
+                    "value": "angiospermas",
+                    "label": "2) Organización general de la flor"
+                },
+                {
+                    "value": "caliz_corola",
+                    "label": "3) Cáliz, corola y perianto"
+                },
+                {
+                    "value": "androceo",
+                    "label": "4) Androceo y morfología estaminal"
+                },
+                {
+                    "value": "gineceo",
+                    "label": "5) Gineceo, ovario y placentación"
+                },
+                {
+                    "value": "clasificacion",
+                    "label": "6) Clasificación morfológica floral"
+                },
+                {
+                    "value": "diseccion",
+                    "label": "7) Procedimiento de observación y disección"
+                }],
+            "questions": [ {
+                "id": "q1",
+                "topic": "gimnospermas",
+                "text": "¿Cuál es la diferencia reproductiva fundamental entre las gimnospermas y las angiospermas?",
+                "options": ["Las gimnospermas producen semillas encerradas en un ovario y las angiospermas presentan semillas desnudas",
+                    "Las gimnospermas presentan óvulos no encerrados en un ovario, mientras que las angiospermas desarrollan los óvulos dentro de un ovario",
+                    "Las gimnospermas carecen de estructuras reproductoras y las angiospermas son las únicas plantas con semillas",
+                    "Las angiospermas producen exclusivamente estróbilos y las gimnospermas exclusivamente flores con pétalos"],
+                "answer": 1,
+                "explain": "Las gimnospermas presentan óvulos no encerrados por un ovario. En las angiospermas, los óvulos se encuentran dentro del ovario, que después de la fecundación participa en el desarrollo del fruto."
+            },
+                {
+                    "id": "q2",
+                    "topic": "gimnospermas",
+                    "text": "¿Qué función cumple principalmente el estróbilo masculino de una conífera?",
+                    "options": ["Producir polen que participa en la reproducción",
+                        "Formar el fruto que encierra las semillas",
+                        "Proteger los pétalos durante la antesis",
+                        "Producir néctar para atraer polinizadores"],
+                    "answer": 0,
+                    "explain": "Los microestróbilos o estróbilos masculinos contienen estructuras productoras de polen. Los macroestróbilos femeninos portan los óvulos asociados a sus escamas o estructuras reproductoras."
+                },
+                {
+                    "id": "q3",
+                    "topic": "gimnospermas",
+                    "text": "Al comparar estróbilos masculinos y femeninos de pino y ciprés, ¿qué conjunto de caracteres debe registrarse según la práctica?",
+                    "options": ["Únicamente el color de las ramas y el aroma de las hojas",
+                        "El número de pétalos, la fusión de sépalos y la posición del estigma",
+                        "El tamaño de los estróbilos y la forma de sus brácteas, comparando sexo y especie",
+                        "El número de lóculos del ovario y la placentación de los óvulos"],
+                    "answer": 2,
+                    "explain": "El procedimiento solicita observar ramas masculinas y femeninas de ciprés y pino y determinar el tamaño de los estróbilos y la forma de las brácteas. La comparación debe basarse en lo que se observa realmente."
+                },
+                {
+                    "id": "q4",
+                    "topic": "angiospermas",
+                    "text": "¿Cuál es el orden correcto de las estructuras florales desde la región externa hacia la interna en una flor típica con verticilos diferenciados?",
+                    "options": ["Gineceo → androceo → corola → cáliz",
+                        "Androceo → cáliz → gineceo → corola",
+                        "Corola → gineceo → cáliz → androceo",
+                        "Cáliz → corola → androceo → gineceo"],
+                    "answer": 3,
+                    "explain": "En una flor típica con verticilos diferenciados, el cáliz es externo, seguido de la corola, el androceo y el gineceo. Existen variaciones entre especies y flores que carecen de uno o más verticilos."
+                },
+                {
+                    "id": "q5",
+                    "topic": "angiospermas",
+                    "text": "¿Qué estructura floral conecta la flor con el tallo?",
+                    "options": ["Estigma",
+                        "Pedúnculo",
+                        "Antera",
+                        "Ovario"],
+                    "answer": 1,
+                    "explain": "El pedúnculo sostiene la flor y la conecta con el tallo. El receptáculo es la región donde se insertan las piezas florales."
+                },
+                {
+                    "id": "q6",
+                    "topic": "angiospermas",
+                    "text": "¿Cuál es la relación correcta entre las estructuras del androceo y del gineceo?",
+                    "options": ["El androceo recibe el polen y el gineceo lo produce",
+                        "El androceo forma el cáliz y el gineceo forma la corola",
+                        "El androceo comprende los estambres y el gineceo comprende los carpelos",
+                        "El androceo contiene los sépalos y el gineceo contiene los pétalos"],
+                    "answer": 2,
+                    "explain": "El androceo es el conjunto de estambres, estructuras reproductoras masculinas. El gineceo está formado por uno o varios carpelos y contiene el ovario, el estilo y el estigma cuando estos se diferencian."
+                },
+                {
+                    "id": "q7",
+                    "topic": "caliz_corola",
+                    "text": "Una flor presenta cinco sépalos que se encuentran libres entre sí. ¿Cómo se clasifica el cáliz?",
+                    "options": ["Dialisépalo",
+                        "Gamosépalo",
+                        "Gamopétalo",
+                        "Perigonado"],
+                    "answer": 0,
+                    "explain": "Un cáliz dialisépalo presenta sépalos libres. Si los sépalos están unidos, el cáliz se denomina gamosépalo."
+                },
+                {
+                    "id": "q8",
+                    "topic": "caliz_corola",
+                    "text": "¿Qué diferencia permite distinguir una corola dialipétala de una gamopétala?",
+                    "options": ["La primera carece de pétalos y la segunda carece de sépalos",
+                        "La primera siempre es zigomorfa y la segunda siempre es actinomorfa",
+                        "La primera contiene estambres fusionados y la segunda contiene carpelos libres",
+                        "La primera presenta pétalos libres y la segunda presenta pétalos unidos"],
+                    "answer": 3,
+                    "explain": "La corola dialipétala presenta pétalos libres; en la gamopétala, los pétalos están unidos total o parcialmente. La forma y la simetría son criterios adicionales de descripción."
+                },
+                {
+                    "id": "q9",
+                    "topic": "caliz_corola",
+                    "text": "¿Qué describe correctamente una flor con simetría actinomorfa?",
+                    "options": ["Solo presenta un plano posible de división en mitades equivalentes",
+                        "Puede dividirse en mitades equivalentes mediante varios planos que pasan por su eje",
+                        "Carece necesariamente de cáliz y corola",
+                        "Presenta obligatoriamente un androceo y un gineceo separados en flores distintas"],
+                    "answer": 1,
+                    "explain": "La simetría actinomorfa permite obtener mitades semejantes mediante varios planos que pasan por el eje floral. La zigomorfa presenta un único plano principal de simetría."
+                },
+                {
+                    "id": "q10",
+                    "topic": "androceo",
+                    "text": "¿Cuáles son las partes principales de un estambre típico?",
+                    "options": ["Estigma y estilo",
+                        "Sépalo y pétalo",
+                        "Filamento y antera",
+                        "Ovario y óvulo"],
+                    "answer": 2,
+                    "explain": "El estambre consta generalmente de un filamento que sostiene la antera. En la antera se forman los granos de polen dentro de los sacos polínicos."
+                },
+                {
+                    "id": "q11",
+                    "topic": "androceo",
+                    "text": "¿Qué significa que los estambres sean monadelfos?",
+                    "options": ["Los filamentos están unidos formando un solo grupo o haz",
+                        "Las anteras están unidas y los filamentos son siempre libres",
+                        "Todos los estambres tienen exactamente la misma longitud",
+                        "Existen dos grupos de filamentos separados"],
+                    "answer": 0,
+                    "explain": "En el androceo monadelfo, los filamentos se unen en un solo haz. En el diadelfo forman dos grupos. La unión de las anteras, en cambio, corresponde a otro carácter morfológico."
+                },
+                {
+                    "id": "q12",
+                    "topic": "androceo",
+                    "text": "¿Qué caracteriza a una antera versátil?",
+                    "options": ["Está completamente fusionada con el ovario",
+                        "Está unida al filamento por su base y no puede cambiar de orientación",
+                        "Carece de tejido productor de polen",
+                        "Se une al filamento de manera que puede oscilar o cambiar de orientación"],
+                    "answer": 3,
+                    "explain": "En una antera versátil, la unión al filamento permite que la antera oscile. La basifija se une por la base, la dorsifija por la región dorsal y la adnada se encuentra adherida al filamento a lo largo de una porción de su longitud."
+                },
+                {
+                    "id": "q13",
+                    "topic": "gineceo",
+                    "text": "¿Cuál es la función principal del estigma?",
+                    "options": ["Producir los pétalos durante el desarrollo floral",
+                        "Recibir los granos de polen durante la polinización",
+                        "Sostener la flor sobre el tallo",
+                        "Proteger los óvulos dentro del fruto maduro"],
+                    "answer": 1,
+                    "explain": "El estigma es la región del gineceo que recibe el polen. El estilo conecta el estigma con el ovario, mientras que el ovario contiene los óvulos."
+                },
+                {
+                    "id": "q14",
+                    "topic": "gineceo",
+                    "text": "Una sección floral muestra que el ovario se encuentra por encima del punto de inserción de las demás piezas florales. ¿Cómo se clasifica?",
+                    "options": ["Ovario ínfero",
+                        "Ovario semiínfero",
+                        "Ovario súpero",
+                        "Ovario apical"],
+                    "answer": 2,
+                    "explain": "Un ovario súpero se sitúa por encima del nivel de inserción de las otras piezas florales. En el ovario ínfero, el ovario se encuentra por debajo; el semiínfero presenta una posición intermedia según la organización floral."
+                },
+                {
+                    "id": "q15",
+                    "topic": "gineceo",
+                    "text": "¿Qué se debe examinar en el corte transversal del ovario para reconocer el tipo de placentación?",
+                    "options": ["Únicamente el color externo de los pétalos",
+                        "La longitud del pedúnculo y el tamaño de los sépalos",
+                        "La cantidad de polen liberado por las anteras",
+                        "La posición de los óvulos, la placenta, los lóculos y los tabiques cuando sean visibles"],
+                    "answer": 3,
+                    "explain": "La placentación describe cómo se disponen los óvulos en la placenta del ovario. El corte transversal permite observar la organización interna, los lóculos y la inserción de los óvulos si la preparación es adecuada."
+                },
+                {
+                    "id": "q16",
+                    "topic": "gineceo",
+                    "text": "¿Cuál correspondencia entre placentación y disposición de los óvulos es correcta?",
+                    "options": ["Axilar: los óvulos se insertan en una región central asociada a los tabiques de un ovario con lóculos",
+                        "Basal: los óvulos se insertan exclusivamente en el margen de un solo carpelo",
+                        "Parietal: los óvulos se insertan únicamente en el extremo superior del ovario",
+                        "Marginal: los óvulos se disponen siempre sobre una columna central libre"],
+                    "answer": 0,
+                    "explain": "En la placentación axilar, los óvulos se disponen alrededor de una región central en un ovario con lóculos. La marginal se asocia al margen del carpelo; la parietal, a la pared interna del ovario; y la basal, a su base."
+                },
+                {
+                    "id": "q17",
+                    "topic": "clasificacion",
+                    "text": "¿Qué característica define una flor hermafrodita o bisexual?",
+                    "options": ["Presenta exclusivamente estambres",
+                        "Presenta exclusivamente carpelos",
+                        "Presenta androceo y gineceo en la misma flor",
+                        "Carece de estructuras reproductoras"],
+                    "answer": 2,
+                    "explain": "Una flor hermafrodita o bisexual posee órganos reproductores masculinos y femeninos en la misma flor. Una flor unisexual presenta androceo o gineceo, pero no ambos funcionalmente presentes como conjuntos reproductores."
+                },
+                {
+                    "id": "q18",
+                    "topic": "clasificacion",
+                    "text": "¿Qué diferencia existe entre una flor perigonada y una flor con perianto diferenciado?",
+                    "options": ["La perigonada tiene siempre ovario ínfero y la diferenciada siempre ovario súpero",
+                        "La perigonada presenta piezas del perianto no diferenciadas en sépalos y pétalos; la diferenciada presenta cáliz y corola distinguibles",
+                        "La perigonada solo aparece en gimnospermas y la diferenciada solo en helechos",
+                        "La perigonada carece de órganos reproductores y la diferenciada siempre es unisexual"],
+                    "answer": 1,
+                    "explain": "En el perianto perigonado, las piezas se denominan tépalos porque no se distinguen claramente como sépalos y pétalos. Cuando las dos envolturas están diferenciadas, se reconocen cáliz y corola."
+                },
+                {
+                    "id": "q19",
+                    "topic": "clasificacion",
+                    "text": "¿Qué información debe integrarse para clasificar una flor según el procedimiento de la práctica?",
+                    "options": ["Solo el color y el aroma",
+                        "Únicamente el tamaño del pedúnculo",
+                        "Exclusivamente la especie vegetal, sin observar sus estructuras",
+                        "Tipo de envoltura floral, presencia de cáliz y corola, sexualidad y diferenciación del perianto"],
+                    "answer": 3,
+                    "explain": "La práctica clasifica las flores según la presencia o ausencia de verticilos, su sexualidad y el tipo de perianto. La clasificación debe derivarse de la observación y disección de cada muestra."
+                },
+                {
+                    "id": "q20",
+                    "topic": "diseccion",
+                    "text": "¿Cuál es la secuencia más adecuada para estudiar la morfología de una flor fresca?",
+                    "options": ["Observar a simple vista, identificar las estructuras externas, diseccionar cuidadosamente, examinar las piezas y dibujar con rótulos",
+                        "Cortar todas las piezas sin observarlas y clasificarlas únicamente por su color",
+                        "Realizar primero un corte del ovario y desechar las piezas externas sin examinarlas",
+                        "Clasificar la flor antes de identificar sus estructuras reproductoras"],
+                    "answer": 0,
+                    "explain": "La observación externa previa conserva la información sobre disposición y organización. Después se separan las piezas con cuidado, se identifican sus caracteres y se registran mediante dibujos rotulados."
+                },
+                {
+                    "id": "q21",
+                    "topic": "diseccion",
+                    "text": "¿Por qué es importante evitar aplastar el ovario durante el corte transversal?",
+                    "options": ["Porque el ovario debe conservar los pétalos unidos a él",
+                        "Porque el aplastamiento aumenta necesariamente el número de óvulos",
+                        "Porque puede deformar los lóculos, tabiques y puntos de inserción de los óvulos y dificultar la identificación",
+                        "Porque impide que los sépalos produzcan polen"],
+                    "answer": 2,
+                    "explain": "La compresión puede alterar la anatomía interna observada. Un corte transversal fino y bien conservado facilita reconocer lóculos, tabiques, placenta y disposición de los óvulos."
+                }],
+            "glossary": [ {
+                "term": "Flor",
+                "def": "Estructura reproductora de las angiospermas, constituida por piezas vegetativas modificadas y órganos reproductores que participan en la formación de semillas."
+            },
+                {
+                    "term": "Gimnosperma",
+                    "def": "Planta con semillas cuyos óvulos no están encerrados en un ovario. Muchas gimnospermas producen estructuras reproductoras organizadas en estróbilos."
+                },
+                {
+                    "term": "Angiosperma",
+                    "def": "Planta con flores cuyos óvulos se encuentran dentro del ovario; tras la fecundación, los óvulos originan semillas y el ovario suele desarrollarse en fruto."
+                },
+                {
+                    "term": "Estróbilo",       "def": "Estructura reproductora de muchas gimnospermas, formada por unidades dispuestas sobre un eje. Los microestróbilos producen polen y los macroestróbilos portan estructuras con óvulos."     },     {       "term": "Microestróbilo",       "def": "Estróbilo masculino de muchas gimnospermas, asociado a la producción y liberación de polen."     },     {       "term": "Macroestróbilo",       "def": "Estróbilo femenino de muchas gimnospermas, con estructuras reproductoras que portan los óvulos."     },     {       "term": "Bráctea",       "def": "Hoja modificada asociada a una estructura reproductora o flor. En los estróbilos, las estructuras semejantes a escamas pueden sostener o proteger las unidades reproductoras."     },     {       "term": "Pedúnculo",       "def": "Eje que sostiene una flor solitaria o una inflorescencia y la conecta con el tallo."     },     {       "term": "Receptáculo",       "def": "Región del extremo del eje floral donde se insertan las piezas de la flor."     },     {       "term": "Cáliz",       "def": "Conjunto de sépalos, generalmente el verticilo más externo de la flor; suele protegerla durante la etapa de botón."     },     {       "term": "Corola",       "def": "Conjunto de pétalos. Puede participar en la atracción de polinizadores mediante su forma, color, olor y otras señales."     },     {       "term": "Dialisépalo",       "def": "Cáliz cuyos sépalos permanecen libres entre sí."     },     {       "term": "Gamosépalo",       "def": "Cáliz cuyos sépalos están unidos total o parcialmente."     },     {       "term": "Dialipétala",       "def": "Corola cuyos pétalos están libres entre sí."     },     {       "term": "Gamopétala",       "def": "Corola cuyos pétalos están unidos total o parcialmente."     },     {       "term": "Perianto",       "def": "Conjunto de envolturas florales, formado por cáliz y corola cuando están diferenciados, o por tépalos cuando no se distinguen claramente."     },     {       "term": "Tépalo",       "def": "Pieza del perianto que no se diferencia claramente en sépalo o pétalo."     },     {       "term": "Androceo",       "def": "Conjunto de estambres de una flor. Corresponde a la región reproductora masculina."     },     {       "term": "Estambre",       "def": "Órgano reproductor masculino de la flor, generalmente compuesto por filamento y antera."     },     {       "term": "Filamento",       "def": "Parte del estambre que sostiene la antera."     },     {       "term": "Antera",       "def": "Parte del estambre que contiene los sacos polínicos, donde se desarrolla el polen."     },     {       "term": "Dehiscencia",       "def": "Apertura de una estructura, como la antera, para liberar su contenido; en las anteras permite la salida del polen."     },     {       "term": "Antera basifija",       "def": "Antera unida al filamento por su base."     },     {       "term": "Antera dorsifija",       "def": "Antera unida al filamento por una región de su cara dorsal."     },     {       "term": "Antera versátil",       "def": "Antera unida al filamento de manera que puede oscilar o cambiar de orientación."     },     {       "term": "Antera adnada",       "def": "Antera adherida al filamento a lo largo de una porción de su longitud."     },     {       "term": "Monadelfo",       "def": "Androceo cuyos filamentos están unidos en un solo grupo o haz."     },     {       "term": "Diadelfo",       "def": "Androceo cuyos filamentos se agrupan en dos haces."     },     {       "term": "Sinantéreo",       "def": "Condición en la que las anteras están unidas entre sí; no debe confundirse con la unión de los filamentos."     },     {       "term": "Gineceo",       "def": "Conjunto de carpelos de la flor. Comprende el ovario y, cuando se diferencian, el estilo y el estigma."     },     {       "term": "Carpelo",       "def": "Unidad estructural del gineceo que porta los óvulos y participa en la formación del ovario."     },     {       "term": "Estigma",       "def": "Región del gineceo que recibe el polen y puede presentar superficies especializadas para su adhesión y germinación."     },     {       "term": "Estilo",       "def": "Región que conecta el estigma con el ovario y puede servir de vía para el crecimiento del tubo polínico."     },     {       "term": "Ovario",       "def": "Parte basal del gineceo que contiene los óvulos. Después de la fecundación, generalmente participa en la formación del fruto."     },     {       "term": "Óvulo",       "def": "Estructura reproductora contenida en el ovario de las angiospermas o expuesta sobre estructuras reproductoras de las gimnospermas; después de la fecundación origina la semilla."     },     {       "term": "Lóculo",       "def": "Cavidad interna del ovario en la que se encuentran los óvulos."     },     {       "term": "Placenta",       "def": "Región del ovario donde se insertan los óvulos."     },     {       "term": "Placentación",       "def": "Patrón de disposición e inserción de los óvulos dentro del ovario; puede ser marginal, parietal, axilar, central, apical o basal."     },     {       "term": "Ovario súpero",       "def": "Ovario situado por encima del nivel de inserción de las demás piezas florales."     },     {       "term": "Ovario ínfero",       "def": "Ovario situado por debajo del nivel de inserción de las demás piezas florales."     },     {       "term": "Ovario semiínfero",       "def": "Ovario con posición intermedia respecto al receptáculo y al punto de inserción de las demás piezas florales; la interpretación depende de la organización floral."     },     {       "term": "Flor hermafrodita",       "def": "Flor que posee androceo y gineceo en la misma unidad floral."     },     {       "term": "Flor unisexual",       "def": "Flor que presenta órganos reproductores masculinos o femeninos, pero no ambos conjuntos reproductores funcionales en la misma flor."     },     {       "term": "Flor perfecta",       "def": "En la clasificación sexual habitual, flor con androceo y gineceo en la misma flor; suele usarse como sinónimo de bisexual o hermafrodita."     },     {       "term": "Flor imperfecta",       "def": "Flor unisexual, con estructuras reproductoras masculinas o femeninas, pero no ambas en la misma flor."     },     {       "term": "Flor monoclamídea",       "def": "Flor con un solo tipo de envoltura floral, o con una de las envolturas ausente según la convención empleada en la guía."     },     {       "term": "Flor diclamídea",       "def": "Flor que presenta dos envolturas diferenciadas: cáliz y corola."     },     {       "term": "Flor perigonada",       "def": "Flor con piezas del perianto no diferenciadas claramente en sépalos y pétalos; dichas piezas se denominan tépalos."     },     {       "term": "Simetría actinomorfa",       "def": "Organización floral que permite dividir la flor en mitades semejantes mediante varios planos que pasan por su eje."     },     {       "term": "Simetría zigomorfa",       "def": "Organización floral que permite obtener mitades semejantes mediante un único plano principal de simetría."     },     {       "term": "Disección floral",       "def": "Separación cuidadosa de las piezas de una flor para reconocer su organización externa e interna, describir caracteres y realizar dibujos rotulados."     }   ],   "flashcards": [     {       "id": "f1",       "front": "Gimnospermas",       "back": "Plantas con semillas no encerradas en un ovario. Muchas producen estróbilos masculinos y femeninos."     },     {       "id": "f2",       "front": "Microestróbilo",       "back": "Estructura reproductora masculina de muchas gimnospermas; produce polen."     },     {       "id": "f3",       "front": "Macroestróbilo",       "back": "Estructura reproductora femenina de muchas gimnospermas; porta los óvulos."     },     {       "id": "f4",       "front": "Diferencia clave: gimnospermas y angiospermas",       "back": "Gimnospermas: óvulos no encerrados en ovario. Angiospermas: óvulos dentro del ovario."     },     {       "id": "f5",       "front": "Pedúnculo y receptáculo",       "back": "Pedúnculo: conecta la flor con el tallo. Receptáculo: región donde se insertan las piezas florales."     },     {       "id": "f6",       "front": "Cáliz",       "back": "Conjunto de sépalos; suele proteger la flor durante la etapa de botón."     },     {       "id": "f7",       "front": "Corola",       "back": "Conjunto de pétalos; puede atraer polinizadores mediante forma, color y olor."     },     {       "id": "f8",       "front": "Dialisépalo vs. gamosépalo",       "back": "Dialisépalo: sépalos libres. Gamosépalo: sépalos unidos total o parcialmente."     },     {       "id": "f9",       "front": "Dialipétala vs. gamopétala",       "back": "Dialipétala: pétalos libres. Gamopétala: pétalos unidos total o parcialmente."     },     {       "id": "f10",       "front": "Androceo",       "back": "Conjunto de estambres; es la región reproductora masculina de la flor."     },     {       "id": "f11",       "front": "Estambre",       "back": "Órgano masculino formado generalmente por filamento y antera."     },     {       "id": "f12",       "front": "Antera",       "back": "Contiene sacos polínicos donde se desarrolla el polen; su apertura permite liberarlo."     },     {       "id": "f13",       "front": "Antera versátil",       "back": "Antera unida al filamento de forma que puede oscilar o cambiar de orientación."     },     {       "id": "f14",       "front": "Monadelfo vs. diadelfo",       "back": "Monadelfo: filamentos unidos en un solo haz. Diadelfo: filamentos agrupados en dos haces."     },     {       "id": "f15",       "front": "Gineceo",       "back": "Conjunto de carpelos; comprende el ovario y, cuando se diferencian, estilo y estigma."     },     {       "id": "f16",       "front": "Estigma, estilo y ovario",       "back": "Estigma: recibe polen. Estilo: conecta estigma y ovario. Ovario: contiene los óvulos."     },     {       "id": "f17",       "front": "Placentación",       "back": "Describe cómo se insertan los óvulos en la placenta del ovario. Tipos: marginal, parietal, axilar, central, apical y basal."     },     {       "id": "f18",       "front": "Ovario súpero",       "back": "Se sitúa por encima del nivel de inserción de las demás piezas florales."     },     {       "id": "f19",       "front": "Ovario ínfero",       "back": "Se sitúa por debajo del nivel de inserción de las demás piezas florales."     },     {       "id": "f20",       "front": "Flor hermafrodita o bisexual",       "back": "Posee androceo y gineceo en la misma flor."     },     {       "id": "f21",       "front": "Flor unisexual",       "back": "Presenta órganos reproductores masculinos o femeninos, pero no ambos conjuntos funcionales en la misma flor."     },     {       "id": "f22",       "front": "Flor diclamídea",       "back": "Presenta cáliz y corola diferenciados."     },     {       "id": "f23",       "front": "Flor perigonada",       "back": "Tiene piezas del perianto no diferenciadas claramente en sépalos y pétalos; se llaman tépalos."     },     {       "id": "f24",       "front": "Simetría actinomorfa",       "back": "Permite dividir la flor en mitades semejantes mediante varios planos que pasan por su eje."     },     {       "id": "f25",       "front": "Simetría zigomorfa",       "back": "Permite dividir la flor en mitades semejantes mediante un único plano principal."     },     {       "id": "f26",       "front": "Objetivo del corte transversal del ovario",       "back": "Reconocer lóculos, tabiques, placenta y disposición de los óvulos para identificar la placentación."     },     {       "id": "f27",       "front": "Secuencia de observación floral",       "back": "Observar a simple vista → identificar partes externas → diseccionar → examinar las piezas → dibujar y rotular."     }   ],   "structures": [     {       "id": "s1",       "title": "Figura 1. [https\://i.imgur.com/iWoVgfP.png]\(https\://i.imgur.com/iWoVgfP.png) ¿Qué estructuras reproductoras se comparan en esta figura?",       "img": "https\://i.imgur.com/iWoVgfP.png",       "options": [         "Flores con cáliz y corola",         "Estróbilos masculinos y femeninos de gimnospermas",         "Tipos de placentación del ovario",         "Estambres libres y fusionados"       ],       "answer": 1,       "explain": "La figura corresponde a estructuras reproductoras de gimnospermas. Los estróbilos masculinos se relacionan con la producción de polen y los femeninos portan las estructuras con óvulos."     },     {       "id": "s2",       "title": "Figura 2. [https\://i.imgur.com/yBEq5yE.png]\(https\://i.imgur.com/yBEq5yE.png) ¿Qué organización reproductora floral debe identificarse?",       "img": "https\://i.imgur.com/yBEq5yE.png",       "options": [         "Una flor de gimnosperma sin ovario",         "Un estróbilo masculino",         "Una flor de angiosperma con verticilos y órganos reproductores",         "Un corte transversal de un tallo"       ],       "answer": 2,       "explain": "En una flor típica de angiosperma se reconocen pedúnculo, receptáculo, cáliz, corola, androceo y gineceo. En el gineceo pueden identificarse estigma, estilo, ovario y óvulos."     },     {       "id": "s3",       "title": "Figura 3. [https\://i.imgur.com/H7g2nDd.png]\(https\://i.imgur.com/H7g2nDd.png) ¿Qué carácter del cáliz se debe determinar?",       "img": "https\://i.imgur.com/H7g2nDd.png",       "options": [         "Si los sépalos están libres o unidos",         "La posición del ovario",         "La placentación de los óvulos",         "La inserción de las anteras"       ],       "answer": 0,       "explain": "La distinción fundamental es entre cáliz dialisépalo, con sépalos libres, y gamosépalo, con sépalos unidos total o parcialmente."     },     {       "id": "s4",       "title": "Figura 4. [https\://i.imgur.com/qCZB3ak.png]\(https\://i.imgur.com/qCZB3ak.png) ¿Qué caracteres florales deben compararse?",       "img": "https\://i.imgur.com/qCZB3ak.png",       "options": [         "Únicamente la posición del ovario",         "La cantidad de óvulos por lóculo",         "La disposición de los estróbilos",         "La unión de sépalos y pétalos, y la forma de la corola"       ],       "answer": 3,       "explain": "La clasificación del cáliz considera si los sépalos están libres o unidos. La corola puede presentar pétalos libres o unidos y distintas formas morfológicas."     },     {       "id": "s5",       "title": "Figura 5. [https\://i.imgur.com/TKoRi5N.png]\(https\://i.imgur.com/TKoRi5N.png) ¿Qué aspecto del androceo se debe reconocer?",       "img": "https\://i.imgur.com/TKoRi5N.png",       "options": [         "La disposición de los óvulos dentro del ovario",         "La inserción de los estambres en relación con las demás piezas florales",         "El número de lóculos del ovario",         "La diferenciación entre sépalos y tépalos"       ],       "answer": 1,       "explain": "La observación de la inserción estaminal permite determinar si los estambres están unidos a los pétalos, a una columna central o si se insertan libres en el receptáculo, según la morfología observada."     },     {       "id": "s6",       "title": "Figura 6. [https\://i.imgur.com/Qd89lvD.png]\(https\://i.imgur.com/Qd89lvD.png) ¿Qué criterio permite clasificar las estructuras representadas?",       "img": "https\://i.imgur.com/Qd89lvD.png",       "options": [         "La posición del ovario",         "La unión de los carpelos",         "La forma de inserción de la antera en el filamento",         "La cantidad de pétalos"       ],       "answer": 2,       "explain": "La antera puede clasificarse según su unión al filamento como basifija, dorsifija, versátil o adnada. La identificación se basa en el punto y extensión de inserción."     },     {       "id": "s7",       "title": "Figura 7. [https\://i.imgur.com/E1fZyYo.png]\(https\://i.imgur.com/E1fZyYo.png) ¿Qué carácter morfológico del androceo se evalúa?",       "img": "https\://i.imgur.com/E1fZyYo.png",       "options": [         "La unión, disposición y diferenciación de los estambres",         "La distribución de los óvulos en la placenta",         "La fusión de los sépalos",         "El número de lóculos del ovario"       ],       "answer": 0,       "explain": "La morfología estaminal puede describirse según longitud relativa, inserción y unión de filamentos o anteras. Ejemplos de términos usados en la práctica son didínamo, tetradínamo, monadelfo, diadelfo y sinantéreo."     },     {       "id": "s8",       "title": "Figura 8. [https\://i.imgur.com/OyutoaC.png]\(https\://i.imgur.com/OyutoaC.png) ¿Qué relación anatómica permite clasificar las estructuras representadas?",       "img": "https\://i.imgur.com/OyutoaC.png",       "options": [         "La longitud de los estambres",         "El número de pétalos",         "La forma del estróbilo",         "La posición del ovario respecto al receptáculo y a la inserción de otras piezas"       ],       "answer": 3,       "explain": "La posición del ovario se clasifica como súpera, ínfera o semiínfera según su relación con el receptáculo y el punto de inserción de las demás piezas florales."     },     {       "id": "s9",       "title": "Figura 9. [https\://i.imgur.com/ygl7NOt.png]\(https\://i.imgur.com/ygl7NOt.png) ¿Qué organización interna se debe identificar?",       "img": "https\://i.imgur.com/ygl7NOt.png",       "options": [         "La simetría de la corola",         "La disposición de los óvulos en la placenta del ovario",         "La inserción de los estambres en el receptáculo",         "La unión de los sépalos"       ],       "answer": 1,       "explain": "La placentación describe la disposición de los óvulos dentro del ovario. Para reconocerla, se examinan la placenta, los lóculos y los tabiques visibles en la sección."     },     {       "id": "s10",       "title": "Figura 10. [https\://i.imgur.com/EC4XCoQ.png]\(https\://i.imgur.com/EC4XCoQ.png) ¿Qué diferencia reproductiva se debe identificar?",       "img": "https\://i.imgur.com/EC4XCoQ.png",       "options": [         "La diferencia entre anteras basifijas y versátiles",         "La diferencia entre ovarios súpero e ínfero",         "La presencia conjunta de androceo y gineceo frente a la presencia de un solo conjunto reproductor",         "La diferencia entre cáliz dialisépalo y gamosépalo"       ],       "answer": 2,       "explain": "Una flor perfecta o bisexual presenta androceo y gineceo en la misma flor. Una flor imperfecta o unisexual presenta órganos reproductores masculinos o femeninos, pero no ambos conjuntos funcionales."     },     {       "id": "s11",       "title": "Figura 11. [https\://i.imgur.com/3XrkueW\.png]\(https\://i.imgur.com/3XrkueW\.png) ¿Qué criterios se utilizan para describir el cáliz?",       "img": "https\://i.imgur.com/3XrkueW\.png",       "options": [         "Únicamente la posición del ovario",         "La cantidad de polen y la forma de las anteras",         "La placentación y el número de carpelos",         "El número de piezas y la forma morfológica"       ],       "answer": 3,       "explain": "El cáliz se puede describir por el número de sépalos y por su forma, además de indicar si las piezas están libres o fusionadas."     },     {       "id": "s12",       "title": "Figura 12. [https\://i.imgur.com/BFPzSfP.png]\(https\://i.imgur.com/BFPzSfP.png) ¿Qué carácter se debe comparar para describir las corolas?",       "img": "https\://i.imgur.com/BFPzSfP.png",       "options": [         "La forma de la corola y la disposición de los pétalos",         "El número de lóculos del ovario",         "La posición de los óvulos en la placenta",         "La presencia de microestróbilos"       ],       "answer": 0,       "explain": "La corola puede describirse por su forma, simetría y unión de los pétalos. Entre las formas mencionadas en la guía se encuentran la ligulada, infundibuliforme, campanulada, cruciforme, tubular, papilionada, labiada y aclavelada."     },     {       "id": "s13",       "title": "Figura 13. [https\://i.imgur.com/PELOsYa.png]\(https\://i.imgur.com/PELOsYa.png) ¿Qué criterios morfológicos permiten comparar las corolas?",       "img": "https\://i.imgur.com/PELOsYa.png",       "options": [         "Solo el número de óvulos",         "La simetría floral y la forma de la corola",         "La unión de los filamentos del androceo exclusivamente",         "El tamaño de los estróbilos masculinos"       ],       "answer": 1,       "explain": "Las corolas se pueden comparar por simetría actinomorfa o zigomorfa y por sus formas, como amariposada, bilabiada, campanulada, hipocrateriforme, infundibuliforme, rotácea, tubular y urceolada."     }   ],   "cases": [     {       "id": "c1",       "text": "Durante la observación de una conífera se encuentran estructuras reproductoras pequeñas asociadas a la producción de polen. ¿Cuál es la interpretación más adecuada?",       "options": [         "Son macroestróbilos que contienen los óvulos",         "Son microestróbilos relacionados con la producción de polen",         "Son ovarios que contienen semillas encerradas",         "Son corolas que atraen polinizadores"       ],       "answer": 1,       "feedback": "Los microestróbilos son estructuras reproductoras masculinas de muchas gimnospermas. Para la práctica, se comparan tamaño y forma de estróbilos y brácteas en ramas de pino y ciprés."     },     {       "id": "c2",       "text": "Una rama de gimnosperma presenta estróbilos femeninos. ¿Qué dato debe registrarse de acuerdo con el procedimiento?",       "options": [         "Número de pétalos y forma del estigma",         "Tipo de corola y unión de los sépalos",         "Tamaño del estróbilo y forma de las brácteas",         "Posición del ovario y número de lóculos"       ],       "answer": 2,       "feedback": "El procedimiento de la guía solicita determinar el tamaño de los estróbilos y la forma de las brácteas. La observación comparativa debe registrar las características visibles de cada especie y sexo."     },     {       "id": "c3",       "text": "Al diseccionar una angiosperma, se observa una estructura externa formada por piezas semejantes a hojas que rodean y protegen el botón floral. ¿Qué estructura se examina?",       "options": [         "El cáliz",         "El estigma",         "La antera",         "La placenta"       ],       "answer": 0,       "feedback": "El cáliz es el conjunto de sépalos y suele contribuir a proteger la flor antes de la apertura. Debe registrarse el número de sépalos y si están libres o unidos."     },     {       "id": "c4",       "text": "Una flor presenta pétalos fusionados formando una estructura tubular. ¿Qué descripción integra correctamente ambos caracteres?",       "options": [         "Corola dialipétala y cáliz dialisépalo",         "Corola ausente y perianto perigonado necesariamente",         "Androceo monadelfo y gineceo apocárpico",         "Corola gamopétala de forma tubular"       ],       "answer": 3,       "feedback": "Gamopétala describe la unión de los pétalos y tubular describe la forma de la corola. Son criterios distintos y pueden registrarse conjuntamente."     },     {       "id": "c5",       "text": "En una flor, los sépalos se separan fácilmente unos de otros porque no están fusionados. ¿Qué clasificación corresponde?",       "options": [         "Gamosépalo",         "Dialisépalo",         "Gamopétalo",         "Perigonado"       ],       "answer": 1,       "feedback": "Dialisépalo significa que los sépalos están libres. Gamosépalo indica que existe unión total o parcial entre ellos."     },     {       "id": "c6",       "text": "Al examinar una flor, se encuentran estructuras alargadas que sostienen anteras con sacos polínicos. ¿Qué conjunto floral forman?",       "options": [         "El cáliz",         "El gineceo",         "El androceo",         "El perianto"       ],       "answer": 2,       "feedback": "Los estambres, constituidos generalmente por filamento y antera, forman el androceo. En la práctica se registra su número, inserción, unión y caracteres de las anteras."     },     {       "id": "c7",       "text": "Los filamentos de varios estambres se encuentran unidos formando un único haz. ¿Qué término describe esta condición?",       "options": [         "Monadelfo",         "Diadelfo",         "Dialisépalo",         "Dorsifijo"       ],       "answer": 0,       "feedback": "La condición monadelfa corresponde a un solo grupo de filamentos unidos. En la diadelfa, los filamentos forman dos grupos. La unión de anteras se registra por separado."     },     {       "id": "c8",       "text": "Una antera se encuentra unida al filamento por la región dorsal y no por su base. ¿Qué tipo de inserción debe considerarse?",       "options": [         "Basifija",         "Adnata",         "Versátil",         "Dorsifija"       ],       "answer": 3,       "feedback": "La antera dorsifija se une al filamento por la región dorsal. La basifija se une por la base; la versátil permite oscilación y la adnada presenta adherencia a lo largo de una porción del filamento."     },     {       "id": "c9",       "text": "Una antera está abierta y se observa liberación de granos de polen. ¿Qué proceso se está observando?",       "options": [         "Placentación",         "Dehiscencia de la antera",         "Fecundación del óvulo",         "Germinación de la semilla"       ],       "answer": 1,       "feedback": "La dehiscencia es la apertura de la antera que permite liberar el polen. La guía solicita registrar si se observa y, cuando sea reconocible, describir el tipo de apertura."     },     {       "id": "c10",       "text": "Una flor posee estigma, estilo y ovario. ¿Qué secuencia describe correctamente la posición de estas regiones del gineceo desde el extremo receptor del polen hacia la base?",       "options": [         "Ovario → antera → estigma",         "Estilo → pétalo → ovario",         "Estigma → estilo → ovario",         "Estigma → sépalo → filamento"       ],       "answer": 2,       "feedback": "El estigma recibe el polen, el estilo conecta el estigma con el ovario y el ovario contiene los óvulos."     },     {       "id": "c11",       "text": "En una sección transversal se observan varios lóculos y óvulos insertados en una región central asociada a los tabiques. ¿Qué tipo de placentación es compatible con esta organización?",       "options": [         "Axilar",         "Marginal",         "Basal",         "Apical"       ],       "answer": 0,       "feedback": "La placentación axilar se asocia con un ovario dividido en lóculos y una región central donde se insertan los óvulos. La identificación debe confirmarse observando la organización real de la muestra."     },     {       "id": "c12",       "text": "Al observar un ovario, los óvulos parecen insertarse en la pared interna y no en una columna central. ¿Qué patrón puede corresponder a esta disposición?",       "options": [         "Axilar",         "Apical",         "Central",         "Parietal"       ],       "answer": 3,       "feedback": "La placentación parietal presenta óvulos insertados en la pared interna del ovario. Debe distinguirse de la axilar, en la que los óvulos se disponen en una región central asociada a los lóculos."     },     {       "id": "c13",       "text": "Una flor tiene androceo y gineceo en la misma unidad floral. ¿Qué clasificación sexual corresponde?",       "options": [         "Unisexual masculina",         "Hermafrodita o bisexual",         "Unisexual femenina",         "Imperfecta por definición"       ],       "answer": 1,       "feedback": "La presencia conjunta de androceo y gineceo define una flor bisexual o hermafrodita. En la clasificación habitual de la guía, se considera perfecta."     },     {       "id": "c14",       "text": "Una flor presenta piezas del perianto que no se diferencian claramente en sépalos y pétalos. ¿Cómo se describe esta organización?",       "options": [         "Diclamídea con cáliz y corola diferenciados",         "Dialipétala con sépalos libres",         "Perigonada, con piezas llamadas tépalos",         "Monadelfa, con un solo haz de filamentos"       ],       "answer": 2,       "feedback": "Cuando las piezas del perianto no se diferencian claramente en sépalos y pétalos, se denominan tépalos y la flor se describe como perigonada."     },     {       "id": "c15",       "text": "Durante la disección, una persona corta el ovario de manera que la sección queda aplastada y no permite reconocer los lóculos. ¿Cuál es la principal limitación?",       "options": [         "La deformación impide valorar adecuadamente la organización interna y la placentación",         "El aplastamiento convierte una flor bisexual en unisexual",         "El corte elimina necesariamente todos los sépalos",         "La deformación demuestra que el ovario es ínfero"       ],       "answer": 0,       "feedback": "La compresión puede deformar lóculos, tabiques y puntos de inserción de los óvulos. Para identificar la placentación se necesita un corte transversal fino y una observación cuidadosa."     },     {       "id": "c16",       "text": "Se debe clasificar una flor después de observar sus estructuras. ¿Cuál estrategia evita asignar categorías sin evidencia?",       "options": [         "Determinar la clasificación por el color de los pétalos",         "Asumir que todas las flores tienen cáliz, corola, androceo y gineceo",         "Usar el tamaño de la flor como único criterio",         "Registrar los caracteres observados y clasificar por separado envoltura floral, sexualidad y perianto"       ],       "answer": 3,       "feedback": "La clasificación debe basarse en los caracteres observados. Se registran por separado la presencia de cáliz y corola, la condición sexual y la diferenciación o no de las piezas del perianto."     }   ],   "interactives": [     {       "id": "i1",       "type": "dragdrop",       "title": "Relaciona la estructura floral con su función",       "terms": [         "Pedúnculo",         "Receptáculo",         "Cáliz",         "Corola",         "Androceo",         "Gineceo",         "Estigma",         "Ovario"       ],       "targets": [         "Conecta la flor con el tallo",         "Región de inserción de las piezas florales",         "Conjunto de sépalos que suele proteger el botón",         "Conjunto de pétalos que puede atraer polinizadores",         "Conjunto de estambres",         "Conjunto de carpelos",         "Recibe el polen",         "Contiene los óvulos"       ],       "answerMap": {         "Pedúnculo": "Conecta la flor con el tallo",         "Receptáculo": "Región de inserción de las piezas florales",         "Cáliz": "Conjunto de sépalos que suele proteger el botón",         "Corola": "Conjunto de pétalos que puede atraer polinizadores",         "Androceo": "Conjunto de estambres",         "Gineceo": "Conjunto de carpelos",         "Estigma": "Recibe el polen",         "Ovario": "Contiene los óvulos"       }     },     {       "id": "i2",       "type": "complete",       "title": "Completa la organización del estambre",       "prompt": "El estambre típico está formado por el \_\_\_\_\_\_\_\_\_\_ y la \_\_\_\_\_\_\_\_\_\_.",       "answer": "filamento; antera"     },     {       "id": "i3",       "type": "complete",       "title": "Completa los tipos de cáliz",       "prompt": "Un cáliz con sépalos libres es \_\_\_\_\_\_\_\_\_\_; un cáliz con sépalos unidos es \_\_\_\_\_\_\_\_\_\_.",       "answer": "dialisépalo; gamosépalo"     },     {       "id": "i4",       "type": "complete",       "title": "Completa los tipos de corola",       "prompt": "Una corola con pétalos libres es \_\_\_\_\_\_\_\_\_\_; una corola con pétalos unidos es \_\_\_\_\_\_\_\_\_\_.",       "answer": "dialipétala; gamopétala"     },     {       "id": "i5",       "type": "dragdrop",       "title": "Relaciona la estructura reproductora con su función",       "terms": [         "Microestróbilo",         "Macroestróbilo",         "Antera",         "Estigma",         "Estilo",         "Óvulo"       ],       "targets": [         "Produce polen en muchas gimnospermas",         "Estructura femenina que porta los óvulos en muchas gimnospermas",         "Contiene sacos polínicos",         "Recibe el polen",         "Conecta el estigma con el ovario",         "Después de la fecundación origina la semilla"       ],       "answerMap": {         "Microestróbilo": "Produce polen en muchas gimnospermas",         "Macroestróbilo": "Estructura femenina que porta los óvulos en muchas gimnospermas",         "Antera": "Contiene sacos polínicos",         "Estigma": "Recibe el polen",         "Estilo": "Conecta el estigma con el ovario",         "Óvulo": "Después de la fecundación origina la semilla"       }     },     {       "id": "i6",       "type": "complete",       "title": "Completa los términos de inserción de la antera",       "prompt": "La antera unida por su base es \_\_\_\_\_\_\_\_\_\_; unida por la región dorsal es \_\_\_\_\_\_\_\_\_\_; capaz de oscilar es \_\_\_\_\_\_\_\_\_\_.",       "answer": "basifija; dorsifija; versátil"     },     {       "id": "i7",       "type": "dragdrop",       "title": "Relaciona la posición del ovario con su descripción",       "terms": [         "Súpero",         "Ínfero",         "Semiínfero"       ],       "targets": [         "Por encima del nivel de inserción de las demás piezas florales",         "Por debajo del nivel de inserción de las demás piezas florales",         "Posición intermedia respecto al receptáculo y las demás piezas"       ],       "answerMap": {         "Súpero": "Por encima del nivel de inserción de las demás piezas florales",         "Ínfero": "Por debajo del nivel de inserción de las demás piezas florales",         "Semiínfero": "Posición intermedia respecto al receptáculo y las demás piezas"       }     },     {       "id": "i8",       "type": "dragdrop",       "title": "Relaciona la clasificación floral con el criterio",       "terms": [         "Diclamídea",         "Perigonada",         "Hermafrodita",         "Unisexual",         "Actinomorfa",         "Zigomorfa"       ],       "targets": [         "Presenta cáliz y corola diferenciados",         "Presenta tépalos no diferenciados claramente en sépalos y pétalos",         "Posee androceo y gineceo en la misma flor",         "Presenta órganos reproductores masculinos o femeninos, pero no ambos conjuntos funcionales",         "Permite varios planos de simetría",         "Presenta un único plano principal de simetría"       ],       "answerMap": {         "Diclamídea": "Presenta cáliz y corola diferenciados",         "Perigonada": "Presenta tépalos no diferenciados claramente en sépalos y pétalos",         "Hermafrodita": "Posee androceo y gineceo en la misma flor",         "Unisexual": "Presenta órganos reproductores masculinos o femeninos, pero no ambos conjuntos funcionales",         "Actinomorfa": "Permite varios planos de simetría",         "Zigomorfa": "Presenta un único plano principal de simetría"       }     },     {       "id": "i9",       "type": "complete",       "title": "Completa el procedimiento de estudio floral",       "prompt": "La secuencia operativa es: observar a simple vista → identificar las estructuras externas → \_\_\_\_\_\_\_\_\_\_ cuidadosamente → examinar y clasificar las piezas → dibujar y \_\_\_\_\_\_\_\_\_\_ las estructuras.",       "answer": "diseccionar; rotular"     },     {       "id": "i10",       "type": "complete",       "title": "Completa la definición de placentación",       "prompt": "La \_\_\_\_\_\_\_\_\_\_ describe la disposición de los \_\_\_\_\_\_\_\_\_\_ en la placenta del ovario.",       "answer": "placentación; óvulos"     },     {       "id": "i11",       "type": "dragdrop",       "title": "Relaciona el tipo de placentación con su patrón general",       "terms": [         "Marginal",         "Parietal",         "Axilar",         "Basal",         "Apical",         "Central"       ],       "targets": [         "Óvulos insertados a lo largo del margen de un carpelo",         "Óvulos insertados en la pared interna del ovario",         "Óvulos insertados en una región central asociada a lóculos y tabiques",         "Óvulos insertados en la base del ovario",         "Óvulos insertados en la región superior del ovario",         "Óvulos insertados en una región central, sin estar asociados a la unión de tabiques de un ovario multilocular"       ],       "answerMap": {         "Marginal": "Óvulos insertados a lo largo del margen de un carpelo",         "Parietal": "Óvulos insertados en la pared interna del ovario",         "Axilar": "Óvulos insertados en una región central asociada a lóculos y tabiques",         "Basal": "Óvulos insertados en la base del ovario",         "Apical": "Óvulos insertados en la región superior del ovario",         "Central": "Óvulos insertados en una región central, sin estar asociados a la unión de tabiques de un ovario multilocular"       }     },     {       "id": "i12",       "type": "complete",       "title": "Completa los órganos del gineceo",       "prompt": "El \_\_\_\_\_\_\_\_\_\_ recibe el polen; el \_\_\_\_\_\_\_\_\_\_ conecta esa región con el ovario; el \_\_\_\_\_\_\_\_\_\_ contiene los óvulos.",       "answer": "estigma; estilo; ovario"     }   ],   "maps": {     "gimnospermas": "Reproducción en gimnospermas\n├─ Estróbilos\n│  ├─ Microestróbilos\n│  │  └─ Producción de polen\n│  └─ Macroestróbilos\n│     └─ Estructuras con óvulos\n├─ Observación de campo/laboratorio\n│  ├─ Comparar pino y ciprés\n│  ├─ Comparar estructuras masculinas y femeninas\n│  └─ Registrar tamaño y forma de brácteas\n└─ Diferencia fundamental\n   └─ Óvulos no encerrados en un ovario",     "angiospermas": "Organización general de la flor\n├─ Eje floral\n│  ├─ Pedúnculo → conecta la flor con el tallo\n│  └─ Receptáculo → inserción de piezas florales\n├─ Verticilos\n│  ├─ Cáliz → sépalos\n│  ├─ Corola → pétalos\n│  ├─ Androceo → estambres\n│  └─ Gineceo → carpelos\n├─ Funciones reproductoras\n│  ├─ Antera → producción/liberación de polen\n│  ├─ Estigma → recepción del polen\n│  ├─ Estilo → conexión con el ovario\n│  └─ Ovario → contiene los óvulos\n└─ Angiospermas\n   └─ Óvulos encerrados en el ovario",     "caliz_corola": "Cáliz, corola y perianto\n├─ Cáliz\n│  ├─ Dialisépalo → sépalos libres\n│  ├─ Gamosépalo → sépalos unidos\n│  └─ Registrar número y forma\n├─ Corola\n│  ├─ Dialipétala → pétalos libres\n│  ├─ Gamopétala → pétalos unidos\n│  ├─ Formas → tubular, campanulada, infundibuliforme, ligulada, cruciforme, labiada, papilionada, aclavelada, entre otras\n│  └─ Simetría\n│     ├─ Actinomorfa → varios planos\n│     └─ Zigomorfa → un plano principal\n└─ Perianto\n   ├─ Diferenciado → cáliz y corola\n   └─ No diferenciado → tépalos; flor perigonada",     "androceo": "Androceo\n├─ Estambre\n│  ├─ Filamento\n│  └─ Antera\n│     ├─ Sacos polínicos\n│     └─ Dehiscencia → liberación de polen\n├─ Inserción de la antera\n│  ├─ Basifija\n│  ├─ Dorsifija\n│  ├─ Versátil\n│  └─ Adnata\n├─ Unión y disposición estaminal\n│  ├─ Monadelfa → un haz de filamentos\n│  ├─ Diadelfa → dos haces\n│  ├─ Sinantérea → anteras unidas\n│  ├─ Didínama → dos pares de diferente longitud\n│  └─ Tetradínama → cuatro estambres largos y dos cortos\n└─ Registro\n   ├─ Contar estambres\n   ├─ Examinar filamentos y anteras\n   └─ Describir inserción, unión y dehiscencia observable",     "gineceo": "Gineceo y ovario\n├─ Regiones\n│  ├─ Estigma → recibe polen\n│  ├─ Estilo → conecta estigma y ovario\n│  └─ Ovario → contiene óvulos\n├─ Posición del ovario\n│  ├─ Súpero\n│  ├─ Semiínfero\n│  └─ Ínfero\n├─ Corte transversal\n│  ├─ Lóculos\n│  ├─ Tabiques\n│  ├─ Placenta\n│  └─ Óvulos\n└─ Placentación\n   ├─ Marginal\n   ├─ Parietal\n   ├─ Axilar\n   ├─ Central\n   ├─ Apical\n   └─ Basal",     "clasificacion": "Clasificación morfológica floral\n├─ Envoltura floral\n│  ├─ Monoclamídea → un tipo de envoltura o una envoltura ausente según el criterio usado\n│  ├─ Diclamídea → cáliz y corola diferenciados\n│  └─ Perigonada → tépalos no diferenciados en sépalos y pétalos\n├─ Sexualidad\n│  ├─ Perfecta/hermafrodita → androceo y gineceo en la misma flor\n│  └─ Imperfecta/unisexual → solo un conjunto reproductor funcional\n├─ Morfología\n│  ├─ Número de piezas\n│  ├─ Piezas libres o fusionadas\n│  ├─ Forma y simetría\n│  └─ Inserción y unión de estambres\n└─ Registro\n   ├─ Observar y diseccionar\n   ├─ Dibujar y rotular\n   └─ Elaborar tabla de clasificación basada en caracteres observados",     "diseccion": "Procedimiento de estudio de la flor\n├─ 1. Observación externa\n│  ├─ Registrar aspecto general\n│  ├─ Identificar pedúnculo y receptáculo\n│  └─ Observar disposición de las piezas\n├─ 2. Disección\n│  ├─ Utilizar agujas y cuchilla nueva\n│  ├─ Separar las piezas con cuidado\n│  └─ Conservar las estructuras para examinarlas\n├─ 3. Examen de estructuras\n│  ├─ Cáliz y corola\n│  ├─ Androceo\n│  ├─ Gineceo\n│  └─ Corte transversal del ovario\n├─ 4. Registro\n│  ├─ Contar y describir piezas\n│  ├─ Identificar caracteres morfológicos\n│  ├─ Dibujar y rotular\n│  └─ Clasificar cada muestra\n└─ Precauciones\n   ├─ Evitar aplastar ovarios\n   ├─ No inferir caracteres no observados\n   └─ Distinguir observación real de interpretación"   } };
+
+                    /* --------------------------
+                    Utilidades y renderizado
+                    -------------------------- */
+                    function ensureDbShape() {
+                    DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+                    DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+                    DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+                    DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+                    DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+                    DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+                    DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+                    DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+                    }
+
+                    function escapeHtml(s) {
+                    if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+                        }
+
+                        /* render glossary */
+                        function renderGloss() {
+                        const list = document.getElementById('glossList');
+                        list.innerHTML = '';
+
+                        const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+                        const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+                        glossary
+                        .filter(item => {
+                        const term = normalizeText(item.term);
+                        const def = normalizeText(item.def);
+                        return !query || term.includes(query) || def.includes(query);
+                        })
+                        .forEach((g, idx) => {
+                        const itemId = g.id || `gloss-${idx}`;
+
+                        const div = document.createElement('div');
+                        div.className = 'relative p-2 border-b';
+
+                        div.innerHTML = `
+                        <strong>${escapeHtml(g.term)}</strong>
+                        <p class="text-xs text-gray-700 pr-14">
+                            ${escapeHtml(g.def)}
+                        </p>
+
+                        <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                            Editar
+                        </button>
+
+                        <div class="absolute bottom-1 right-1 flex gap-1">
+                            <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                            <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                        </div>
+                        `;
+
+                        list.appendChild(div);
+                        });
+
+                        list.querySelectorAll('.edit-gloss').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        const i = parseInt(btn.dataset.i);
+                        document.getElementById('termInput').value = DB.glossary[i].term || '';
+                        document.getElementById('defInput').value = DB.glossary[i].def || '';
+                        DB.glossary.splice(i, 1);
+                        renderGloss();
+                        saveToLocal();
+                        updateDashboard();
+                        });
+                        });
+
+                        list.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+                        }
+                        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+                        /* render flashcards */
+                        function renderFlashcards() {
+                        const cont = document.getElementById('flashContainer');
+                        cont.innerHTML = '';
+
+                        const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+                        flashcards.forEach((f, i) => {
+                        const itemId = f.id || `flash-${i}`;
+
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.style.width = '240px';
+
+                        card.innerHTML = `
+                        <div class="card-inner" data-index="${i}">
+                            <div class="card-front">
+                                ${escapeHtml(f.front)}
+                            </div>
+
+                            <div class="card-back relative">
+                                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                                <div class="absolute bottom-1 right-1 flex gap-1">
+                                    <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                                    <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+
+                        card.querySelector('.card-inner').addEventListener('click', e => {
+                        const inner = e.currentTarget;
+                        inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                        });
+
+                        card.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        cont.appendChild(card);
+                        });
+
+                        document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+                        }
+
+                        /* render structures */
+                        function renderStructures() {
+                        const area = document.getElementById('structuresArea'); area.innerHTML = '';
+                        const structures = Array.isArray(DB.structures) ? DB.structures: [];
+                        structures.forEach((s, idx)=> {
+                        const options = Array.isArray(s.options) ? s.options: [];
+                        const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                        wrap.innerHTML = `<div>
+                            <h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">
+                                Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a>
+                            </div>
+                            <div class="mt-2" id="opts-${idx}"></div>
+                        </div>
+                        `;
+                        area.appendChild(wrap);
+                        const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                        options.forEach((o, i)=> {
+                        const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                        });
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                        btn.addEventListener('click', () => {
+                        const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                        if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                        }
+
+                        const itemId = s.id || `structure-${idx}`;
+
+                        if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                        }
+                        });
+                        wrap.appendChild(btn);
+                        });
+                        document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+                        }
+
+                        /* render cases */
+                        function renderCases() {
+                        const area = document.getElementById('casesArea'); area.innerHTML = '';
+                        const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+                        casesList.forEach((c,
+                        idx)=> {
+                        const options = Array.isArray(c.options) ? c.options: [];
+                        const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                        wrap.innerHTML = `<div>
+                            <h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">
+                                ${escapeHtml(c.text)}
+                            </p>
+                            <div class="mt-2" id="caseOpts${idx}"></div>
+                        </div>
+                        `;
+                        area.appendChild(wrap);
+                        const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                        options.forEach((o, i)=> {
+                        const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                        });
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                        btn.addEventListener('click',
+                        () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                        alert('✅ Correcto\n' + (c.feedback || ''));
+                        markItem('cases', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto\n' + (c.feedback || ''));
+                        markItem('cases', itemId, false);
+                        }
+                        });
+                        wrap.appendChild(btn);
+                        });
+                        document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+                        }
+
+                        /* render interactives with correct drag/drop handling */
+                        function renderInteratives() {
+                        const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+                        (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                        idx)=> {
+                        const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                        block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                        if (it.type === 'dragdrop') {
+                        const terms = Array.isArray(it.terms) ? it.terms: [];
+                        const targets = Array.isArray(it.targets) ? it.targets: [];
+                        const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                        terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                        });
+                        const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                        targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                        e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                        dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                        e.preventDefault();
+                        dz.style.backgroundColor = '';
+                        const id = e.dataTransfer.getData('text/plain');
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        // append (this move automatically removes from previous parent)
+                        dz.appendChild(el);
+                        // compute trimmed texts
+                        const childText = el.textContent.trim();
+                        const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                        const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                        if (expected && expected === zoneText) {
+                        dz.style.borderColor = '#16a34a';
+                        dz.style.backgroundColor = '#ecfdf5';
+                        dz.dataset.correct = 'true';
+                        } else {
+                        dz.style.borderColor = '#dc2626';
+                        dz.style.backgroundColor = '#fff1f2';
+                        dz.dataset.correct = 'false';
+                        }
+                        // For other zones: if empty reset; if they have children, re-evaluate them
+                        targets.forEach((ot, j)=> {
+                        const otherDz = document.getElementById(`target-${idx}-${j}`);
+                        if (!otherDz) return;
+                        if (otherDz === dz) return;
+                        // remove any duplicate of the moved element (safety)
+                        Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                        if (ch.id === el.id) otherDz.removeChild(ch);
+                        });
+                        if (otherDz.querySelectorAll('.draggable').length === 0) {
+                        otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                        } else {
+                        const rem = otherDz.querySelector('.draggable');
+                        if (rem) {
+                        const remText = rem.textContent.trim();
+                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                        if (remExp && remExp === otherZoneText) {
+                        otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                        } else {
+                        otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                        }
+                        }
+                        }
+                        });
+                        });
+                        targetsDiv.appendChild(dz);
+                        });
+                        block.appendChild(termsDiv);
+                        block.appendChild(targetsDiv);
+
+                        const checkBtn = document.createElement('button');
+                        checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                        checkBtn.textContent = 'Verificar actividad';
+
+                        checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                        alert('✅ Actividad correcta');
+                        markItem('interactive', itemId, true);
+                        } else {
+                        alert('❌ Revisa la actividad.');
+                        markItem('interactive', itemId, false);
+                        }
+                        });
+
+                        block.appendChild(checkBtn);
+                        } else if (it.type === 'complete') {
+                        const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">
+                            ${escapeHtml(it.prompt || '')}
+                        </div>
+                        <input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                        btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                        alert('✅ Correcto');
+                        markItem('interactive', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto.');
+                        markItem('interactive', itemId, false);
+                        }
+                        });
+                        block.appendChild(q); block.appendChild(btn);
+                        }
+                        area.appendChild(block);
+                        });
+                        document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+                        }
+
+                        /* render maps */
+                        function renderMaps() {
+                        const disp = document.getElementById('mapsDisplay');
+                        disp.innerHTML = '';
+
+                        Object.entries(DB.maps || {}).forEach(([k,
+                        v]) => {
+                        const itemId = `map-${k}`;
+
+                        const div = document.createElement('div');
+                        div.className = 'relative bg-gray-50 p-3 rounded';
+
+                        div.innerHTML = `
+                        <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                        <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                        <div class="absolute bottom-1 right-1 flex gap-1">
+                            <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                            <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                        </div>
+                        `;
+
+                        div.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        disp.appendChild(div);
+                        });
+
+                        document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+                        }
+
+                        /* Save/load DB to localStorage */
+                        function saveToLocal() {
+                        localStorage.setItem('DB_biocel', JSON.stringify(DB));
+                        }
+                        function loadFromLocal() {
+                        const raw = localStorage.getItem('DB_biocel');
+                        if (raw) {
+                        try {
+                        DB = JSON.parse(raw);
+                        } catch(e) {
+                        console.error(e);
+                        }
+                        }
+                        ensureDbShape();
+                        renderAll();
+                        }
+                        function renderAll() {
+                        ensureDbShape();
+                        renderQuizTopics();
+                        renderGloss();
+                        renderFlashcards();
+                        renderStructures();
+                        renderCases();
+                        renderInteratives();
+                        renderMaps();
+
+                        document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+                        document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+                        updateDashboard();
+                        }
+                        /* Score and dashboard */
+                        const POINTS_PER_ITEM = 10;
+
+                        function getProgress() {
+                        return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+                        }
+
+                        function saveProgress(progress) {
+                        localStorage.setItem('progressBySection', JSON.stringify(progress));
+                        }
+
+                        function markItem(section, id, isCorrect) {
+                        const progress = getProgress();
+
+                        if (!progress[section]) {
+                        progress[section] = {};
+                        }
+
+                        progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+                        saveProgress(progress);
+                        updateDashboard();
+                        }
+
+                        function countCorrect(progress, section) {
+                        if (!progress[section]) return 0;
+
+                        return Object.values(progress[section]).filter(value => value === 'correct').length;
+                        }
+
+                        function getSectionTotals() {
+                        return {
+                        quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                        gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                        flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                        structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                        cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                        interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                        maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+                        };
+                        }
+
+                        function formatProgress(correct, total) {
+                        const obtained = correct * POINTS_PER_ITEM;
+                        const max = total * POINTS_PER_ITEM;
+                        const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+                        return {
+                        obtained,
+                        max,
+                        percent,
+                        text: `${obtained} / ${max} - ${percent}%`
+                        };
+                        }
+
+                        function updateDashboard() {
+                        const progress = getProgress();
+                        const totals = getSectionTotals();
+
+                        const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+                        const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+                        const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+                        const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+                        const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+                        const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+                        const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+                        const obtainedTotal =
+                        quiz.obtained +
+                        gloss.obtained +
+                        flash.obtained +
+                        structures.obtained +
+                        cases.obtained +
+                        interactive.obtained +
+                        maps.obtained;
+
+                        const maxTotal =
+                        quiz.max +
+                        gloss.max +
+                        flash.max +
+                        structures.max +
+                        cases.max +
+                        interactive.max +
+                        maps.max;
+
+                        const totalPercent = maxTotal > 0
+                        ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+                        document.getElementById('score').textContent = obtainedTotal;
+                        document.getElementById('maxScore').textContent = maxTotal;
+                        document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+                        document.getElementById('progressQuiz').textContent = quiz.text;
+                        document.getElementById('progressGloss').textContent = gloss.text;
+                        document.getElementById('progressFlash').textContent = flash.text;
+                        document.getElementById('progressStructures').textContent = structures.text;
+                        document.getElementById('progressCases').textContent = cases.text;
+                        document.getElementById('progressInteractive').textContent = interactive.text;
+                        document.getElementById('progressMaps').textContent = maps.text;
+                        }
+
+                        loadFromLocal();
+
+                        /* Navigation wiring */
+                        const sections = document.querySelectorAll("section");
+                        document.querySelectorAll(".btn").forEach(btn=> {
+                        btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                        sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                        top: 0, behavior: 'smooth'
+                        });
+                        });
+                        });
+
+                        /* File import/export */
+                        const fileInput = document.getElementById('fileInput');
+                        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+                        fileInput.addEventListener('change', handleFile, false);
+                        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+                        function handleFile(evt) {
+                        const f = evt.target.files[0];
+                        if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = e=> {
+                        try {
+                        const obj = JSON.parse(e.target.result);
+                        // basic merge/replace: if keys present replace DB keys
+                        DB = Object.assign({}, DB, obj);
+                        ensureDbShape();
+                        renderAll();
+                        saveToLocal();
+                        alert('Contenido importado correctamente.');
+                        } catch(err) {
+                        alert('Error leyendo JSON: ' + err.message);
+                        }
+                        };
+                        reader.readAsText(f);
+                        }
+                        function exportAll() {
+                        const dataStr = JSON.stringify(DB, null, 2);
+                        const blob = new Blob([dataStr], {
+                        type: "application/json"
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+                        URL.revokeObjectURL(url);
+                        }
+
+                        /* CRUD simple for glosario, flashcards, etc. */
+                        document.getElementById('addTerm').addEventListener('click', ()=> {
+                        const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+                        if (!t || !d) {
+                        alert('Rellena término y definición'); return;
+                        }
+                        DB.glossary.unshift({
+                        term: t, def: d
+                        }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+                        });
+                        document.getElementById('clearGloss').addEventListener('click', ()=> {
+                        if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+                        });
+                        document.getElementById('importGloss').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                        DB.glossary = arr;
+                        renderGloss();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Glosario importado');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportGloss').addEventListener('click', ()=> {
+                        document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+                        });
+
+                        document.getElementById('loadFlash').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                        DB.flashcards = arr;
+                        renderFlashcards();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Flashcards cargadas');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportFlash').addEventListener('click', ()=> {
+                        document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+                        });
+
+                        document.getElementById('loadStructures').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                        DB.structures = arr;
+                        renderStructures();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Estructuras cargadas');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportStructures').addEventListener('click', ()=> {
+                        document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+                        });
+
+                        document.getElementById('loadCases').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                        DB.cases = arr;
+                        renderCases();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Casos cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportCases').addEventListener('click', ()=> {
+                        document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+                        });
+
+                        document.getElementById('loadInter').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                        DB.interactives = arr;
+                        renderInteratives();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Interactivos cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportInter').addEventListener('click', ()=> {
+                        document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+                        });
+
+                        document.getElementById('loadMaps').addEventListener('click', ()=> {
+                        try {
+                        const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                        DB.maps = obj;
+                        renderMaps();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Mapas cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportMaps').addEventListener('click', ()=> {
+                        document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+                        });
+
+                        /* Quiz: sequential behavior */
+                        let filteredQuestions = DB.questions.slice();
+                        let qIndex = 0;
+                        let currentQuestion = null;
+                        function renderQuizTopics() {
+                        const select = document.getElementById('quizTopic');
+                        if (!select) return;
+                        select.innerHTML = '';
+                        const allOption = document.createElement('option');
+                        allOption.value = 'all';
+                        allOption.textContent = 'Todos los bloques';
+                        select.appendChild(allOption);
+                        const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+                        topics.forEach(topic => {
+                        if (!topic || !topic.value) return;
+                        const option = document.createElement('option');
+                        option.value = topic.value;
+                        option.textContent = topic.label || topic.value;
+                        select.appendChild(option);
+                        });
+                        }
+                        function refreshFiltered(topic) {
+                        filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+                        qIndex = 0;
+                        document.getElementById('qTotal').textContent = filteredQuestions.length;
+                        renderCurrentQuestion();
+                        }
+                        function renderCurrentQuestion() {
+                        if (filteredQuestions.length === 0) {
+                        document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+                        }
+                        if (qIndex < 0) qIndex = 0;
+                            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+                            const q = filteredQuestions[qIndex];
+                            document.getElementById('qText').textContent = q.text;
+                            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+                            const questionOptions = Array.isArray(q.options) ? q.options: [];
+                            questionOptions.forEach((o, i)=> {
+                            const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+                            });
+                            document.getElementById('qNumber').textContent = (qIndex+1);
+                            document.getElementById('qTotal').textContent = filteredQuestions.length;
+                            currentQuestion = q;
+                            }
+                            document.getElementById('quizTopic').addEventListener('change', ()=> {
+                            refreshFiltered(document.getElementById('quizTopic').value);
+                            });
+                            document.getElementById('nextQ').addEventListener('click', ()=> {
+                            if (filteredQuestions.length === 0) {
+                            alert('No hay preguntas.'); return;
+                            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+                                });
+                                document.getElementById('prevQ').addEventListener('click', ()=> {
+                                if (filteredQuestions.length === 0) {
+                                alert('No hay preguntas.'); return;
+                                } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+                                });
+                                document.getElementById('checkA').addEventListener('click', () => {
+                                const sel = document.querySelector('input[name="qopt"]:checked');
+                                const res = document.getElementById('qResult');
+
+                                if (!currentQuestion) {
+                                res.textContent = 'No hay pregunta seleccionada.';
+                                return;
+                                }
+
+                                if (!sel) {
+                                res.textContent = 'Selecciona una opción.';
+                                return;
+                                }
+
+                                const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+                                if (parseInt(sel.value) === currentQuestion.answer) {
+                                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                                markItem('quiz', itemId, true);
+                                } else {
+                                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                                markItem('quiz', itemId, false);
+                                }
+                                });
+
+                                document.getElementById('showAll').addEventListener('click', ()=> {
+                                document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+                                });
+
+                                /* Load questions JSON editor */
+                                document.getElementById('loadQuestions').addEventListener('click', ()=> {
+                                try {
+                                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                                DB.questions = arr;
+                                refreshFiltered(document.getElementById('quizTopic').value);
+                                renderAll();
+                                saveToLocal();
+                                updateDashboard();
+                                alert('Preguntas cargadas');
+                                } else alert('Formato inválido (se espera array).');
+                                } catch(e) {
+                                alert('JSON inválido');
+                                }
+                                });
+                                document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+                                try {
+                                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                                if (Array.isArray(arr)) {
+                                DB.quizTopics = arr;
+                                renderQuizTopics();
+                                refreshFiltered(document.getElementById('quizTopic').value);
+                                saveToLocal();
+                                alert('Bloques del quiz cargados');
+                                } else {
+                                alert('Formato inválido (se espera array).');
+                                }
+                                } catch(e) {
+                                alert('JSON inválido');
+                                }
+                                });
+                                document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+                                document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+                                });
+
+                                /* Reset progress */
+                                document.getElementById('reset').addEventListener('click', () => {
+                                if (!confirm('Reiniciar todo el progreso?')) return;
+
+                                localStorage.removeItem('progressBySection');
+                                localStorage.removeItem('score');
+                                localStorage.removeItem('block1');
+                                localStorage.removeItem('block2');
+                                localStorage.removeItem('block3');
+
+                                updateDashboard();
+                                });
+
+                                /* initial render and quiz setup */
+                                renderAll();
+                                refreshFiltered('all');
+
+                                /* =====================
+                                HOME JSON (SOLO INICIO)
+                                ===================== */
+
+                                document.getElementById("loadHomeJSON").addEventListener("click", () => {
+                                try {
+                                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                                if (data.title) {
+                                document.getElementById("homeTitle").textContent = data.title;
+                                }
+                                if (data.description) {
+                                document.getElementById("homeDescription").innerHTML = data.description;
+                                }
+                                } catch (e) {
+                                alert("JSON inválido en Inicio");
+                                }
+                                });
+
+                                document.getElementById("exportHomeJSON").addEventListener("click", () => {
+                                const data = {
+                                title: document.getElementById("homeTitle").textContent,
+                                description: document.getElementById("homeDescription").innerHTML
+                                };
+                                document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+                                });
+                            </script>
+                        </body>
+                    </html>
